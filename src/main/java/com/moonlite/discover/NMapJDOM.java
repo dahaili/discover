@@ -139,12 +139,12 @@ public class NMapJDOM implements Discover {
 				"name");
 	}
 	
-    /*** Format of the XML:
-		<hostnames>
-			<hostname name="asav" type="user" />
-			<hostname name="asav" type="PTR" />
-		</hostnames>
-    ***/
+	/*** Format of the XML:
+	<hostnames>
+		<hostname name="asav" type="user" />
+		<hostname name="asav" type="PTR" />
+	</hostnames>
+	***/
 	private String getHostName (Element host) {
 		Element hostname = host.getChild("hostnames").getChild("hostname");
 		return hostname != null ? hostname.getAttributeValue("name") : null;
