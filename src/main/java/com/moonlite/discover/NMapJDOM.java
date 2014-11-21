@@ -29,48 +29,47 @@ public class NMapJDOM implements Discover {
 	 */
 	public Host[] readXMLFile (String fileName) throws JDOMException, IOException {
 		ArrayList<Host> result = new ArrayList<>();
+		SAXBuilder builder = new SAXBuilder();
+		File xmlFile = new File(fileName);
 
-		  SAXBuilder builder = new SAXBuilder();
-		  File xmlFile = new File(fileName);
-		  
-        /*** A sample host element in the XML file:
-				<host starttime="1415838190" endtime="1415838197">
-					<status state="up" reason="syn-ack" reason_ttl="249" />
-					<address addr="172.23.204.252" addrtype="ipv4" />
-					<hostnames>
-						<hostname name="asav" type="user" />
-						<hostname name="asav" type="PTR" />
-					</hostnames>
-					<ports>
-						<extraports state="filtered" count="98">
-							<extrareasons reason="no-responses" count="98" />
-						</extraports>
-						<port protocol="tcp" portid="23">
-							<state state="open" reason="syn-ack" reason_ttl="249" />
-							<service name="telnet" method="table" conf="3" />
-						</port>
-						<port protocol="tcp" portid="443">
-							<state state="open" reason="syn-ack" reason_ttl="249" />
-							<service name="https" method="table" conf="3" />
-						</port>
-					</ports>
-					<os>
-						<portused state="open" proto="tcp" portid="23" />
-						<osmatch name="Cisco Adaptive Security Appliance (PIX OS 8.4)"
-							accuracy="100" line="16369">
-							<osclass type="firewall" vendor="Cisco" osfamily="PIX OS"
-								osgen="8.X" accuracy="100">
-								<cpe>cpe:/o:cisco:pix_os:8</cpe>
-							</osclass>
-						</osmatch>
-					</os>
-					<tcpsequence index="258" difficulty="Good luck!"
-						values="CD463246,6C71F087,4194D3F9,7184CECD,45F00C,B1A694D2" />
-					<ipidsequence class="Randomized" values="D952,E7DC,9400,8664,B2AA,D92A" />
-					<tcptssequence class="none returned (unsupported)" />
-					<times srtt="3381" rttvar="1971" to="100000" />
-				</host>
-	    ***/
+		/*** A sample host element in the XML file:
+		<host starttime="1415838190" endtime="1415838197">
+			<status state="up" reason="syn-ack" reason_ttl="249" />
+			<address addr="172.23.204.252" addrtype="ipv4" />
+			<hostnames>
+				<hostname name="asav" type="user" />
+				<hostname name="asav" type="PTR" />
+			</hostnames>
+			<ports>
+				<extraports state="filtered" count="98">
+					<extrareasons reason="no-responses" count="98" />
+				</extraports>
+				<port protocol="tcp" portid="23">
+					<state state="open" reason="syn-ack" reason_ttl="249" />
+					<service name="telnet" method="table" conf="3" />
+				</port>
+				<port protocol="tcp" portid="443">
+					<state state="open" reason="syn-ack" reason_ttl="249" />
+					<service name="https" method="table" conf="3" />
+				</port>
+			</ports>
+			<os>
+				<portused state="open" proto="tcp" portid="23" />
+				<osmatch name="Cisco Adaptive Security Appliance (PIX OS 8.4)"
+					accuracy="100" line="16369">
+					<osclass type="firewall" vendor="Cisco" osfamily="PIX OS"
+						osgen="8.X" accuracy="100">
+						<cpe>cpe:/o:cisco:pix_os:8</cpe>
+					</osclass>
+				</osmatch>
+			</os>
+			<tcpsequence index="258" difficulty="Good luck!"
+				values="CD463246,6C71F087,4194D3F9,7184CECD,45F00C,B1A694D2" />
+			<ipidsequence class="Randomized" values="D952,E7DC,9400,8664,B2AA,D92A" />
+			<tcptssequence class="none returned (unsupported)" />
+			<times srtt="3381" rttvar="1971" to="100000" />
+		</host>
+		***/
 		Document document = builder.build(xmlFile);
 		Element rootNode = document.getRootElement();
 		for (Element host:  rootNode.getChildren("host")) {
@@ -135,8 +134,9 @@ public class NMapJDOM implements Discover {
 	 * @return String the OS of the host
 	 */
 	private String getHostOS (Element host) {
-    	Element os = host.getChild("os");
-    	return os == null? null : os.getChild("osmatch").getAttributeValue("name");
+		Element os = host.getChild("os");
+		return os == null ? null : os.getChild("osmatch").getAttributeValue(
+				"name");
 	}
 	
     /*** Format of the XML:
@@ -146,8 +146,8 @@ public class NMapJDOM implements Discover {
 		</hostnames>
     ***/
 	private String getHostName (Element host) {
-    	Element hostname = host.getChild("hostnames").getChild("hostname");
-		return hostname != null? hostname.getAttributeValue("name") : null;
+		Element hostname = host.getChild("hostnames").getChild("hostname");
+		return hostname != null ? hostname.getAttributeValue("name") : null;
 	}
 	
 	@Override

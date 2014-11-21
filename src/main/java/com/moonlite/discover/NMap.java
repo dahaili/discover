@@ -32,47 +32,47 @@ public class NMap implements Discover {
 		ArrayList<Host> result = new ArrayList<>();
 
 		DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
-        Document doc = docBuilder.parse (new File(fileName));	
+		DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
+		Document doc = docBuilder.parse(new File(fileName));
 
         /*** A sample host element in the XML file:
-				<host starttime="1415838190" endtime="1415838197">
-					<status state="up" reason="syn-ack" reason_ttl="249" />
-					<address addr="172.23.204.252" addrtype="ipv4" />
-					<hostnames>
-						<hostname name="asav" type="user" />
-						<hostname name="asav" type="PTR" />
-					</hostnames>
-					<ports>
-						<extraports state="filtered" count="98">
-							<extrareasons reason="no-responses" count="98" />
-						</extraports>
-						<port protocol="tcp" portid="23">
-							<state state="open" reason="syn-ack" reason_ttl="249" />
-							<service name="telnet" method="table" conf="3" />
-						</port>
-						<port protocol="tcp" portid="443">
-							<state state="open" reason="syn-ack" reason_ttl="249" />
-							<service name="https" method="table" conf="3" />
-						</port>
-					</ports>
-					<os>
-						<portused state="open" proto="tcp" portid="23" />
-						<osmatch name="Cisco Adaptive Security Appliance (PIX OS 8.4)"
-							accuracy="100" line="16369">
-							<osclass type="firewall" vendor="Cisco" osfamily="PIX OS"
-								osgen="8.X" accuracy="100">
-								<cpe>cpe:/o:cisco:pix_os:8</cpe>
-							</osclass>
-						</osmatch>
-					</os>
-					<tcpsequence index="258" difficulty="Good luck!"
-						values="CD463246,6C71F087,4194D3F9,7184CECD,45F00C,B1A694D2" />
-					<ipidsequence class="Randomized" values="D952,E7DC,9400,8664,B2AA,D92A" />
-					<tcptssequence class="none returned (unsupported)" />
-					<times srtt="3381" rttvar="1971" to="100000" />
-				</host>
-	    ***/
+		<host starttime="1415838190" endtime="1415838197">
+			<status state="up" reason="syn-ack" reason_ttl="249" />
+			<address addr="172.23.204.252" addrtype="ipv4" />
+			<hostnames>
+				<hostname name="asav" type="user" />
+				<hostname name="asav" type="PTR" />
+			</hostnames>
+			<ports>
+				<extraports state="filtered" count="98">
+					<extrareasons reason="no-responses" count="98" />
+				</extraports>
+				<port protocol="tcp" portid="23">
+					<state state="open" reason="syn-ack" reason_ttl="249" />
+					<service name="telnet" method="table" conf="3" />
+				</port>
+				<port protocol="tcp" portid="443">
+					<state state="open" reason="syn-ack" reason_ttl="249" />
+					<service name="https" method="table" conf="3" />
+				</port>
+			</ports>
+			<os>
+				<portused state="open" proto="tcp" portid="23" />
+				<osmatch name="Cisco Adaptive Security Appliance (PIX OS 8.4)"
+					accuracy="100" line="16369">
+					<osclass type="firewall" vendor="Cisco" osfamily="PIX OS"
+						osgen="8.X" accuracy="100">
+						<cpe>cpe:/o:cisco:pix_os:8</cpe>
+					</osclass>
+				</osmatch>
+			</os>
+			<tcpsequence index="258" difficulty="Good luck!"
+				values="CD463246,6C71F087,4194D3F9,7184CECD,45F00C,B1A694D2" />
+			<ipidsequence class="Randomized" values="D952,E7DC,9400,8664,B2AA,D92A" />
+			<tcptssequence class="none returned (unsupported)" />
+			<times srtt="3381" rttvar="1971" to="100000" />
+		</host>
+		***/
 		NodeList hosts = doc.getElementsByTagName("host");
 		for (int i = 0; i < hosts.getLength(); i++) {
 			Element host = (Element) hosts.item(i);
@@ -106,7 +106,7 @@ public class NMap implements Discover {
 	
 	/**
 	 * Format of the XML: 	
-	 *    <address addr="172.23.204.252" addrtype="ipv4" />
+	 *	<address addr="172.23.204.252" addrtype="ipv4" />
 	 * @param host Element
 	 * @return String, the host IP address
 	 */
@@ -132,19 +132,21 @@ public class NMap implements Discover {
 	 * @return String the OS of the host
 	 */
 	private String getHostOS (Element host) {
-    	Element os = (Element)host.getElementsByTagName("os").item(0);
-    	if (os == null) {
-    		return null;
-    	}
-    	Element osMatch =  (Element)os.getElementsByTagName("osmatch").item(0);
+		Element os = (Element) host.getElementsByTagName("os").item(0);
+		if (os == null) {
+			return null;
+		}
+		Element osMatch = (Element) os.getElementsByTagName("osmatch").item(0);
 		return osMatch.getAttribute("name").trim();
 	}
 
 	
 	private String getHostName (Element host) {
-    	Element hostnames = (Element)host.getElementsByTagName("hostnames").item(0);
-    	Element hostname =  (Element)hostnames.getElementsByTagName("hostname").item(0);
-		return hostname != null? hostname.getAttribute("name").trim() : null;
+		Element hostnames = (Element) host.getElementsByTagName("hostnames")
+				.item(0);
+		Element hostname = (Element) hostnames.getElementsByTagName("hostname")
+				.item(0);
+		return hostname != null ? hostname.getAttribute("name").trim() : null;
 	}
 	
 	@Override
