@@ -3,7 +3,6 @@ package com.moonlite.discover;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 
 import org.jdom2.*;
 import org.jdom2.input.SAXBuilder;
