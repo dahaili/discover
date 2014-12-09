@@ -3,6 +3,7 @@ package com.moonlite.discover;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.apache.commons.net.util.SubnetUtils;
 import org.apache.commons.net.util.SubnetUtils.SubnetInfo;
@@ -63,16 +64,16 @@ public class ASA extends Host {
      */
     private Object[] getFirewall(List<Object> commands, String nameIf) {
         // get the access-group for the interface: "access-group inside_access_out out interface inside"
-        Set<String> aclNames = new HashSet<>();
-        commands.stream().
+        // gather the global access-group, " "access-group inside_access_out global", as well.
+        Set<String> aclNames = commands.stream().
                 filter(cmd -> cmd.toString().startsWith("access-group ") &&
                         (cmd.toString().endsWith(" global") ||  cmd.toString().split(" ")[4].equals(nameIf))).
-                forEach(cmd -> aclNames.add(cmd.toString().split(" ")[1]));
+                map(accessGroup -> accessGroup.toString().split(" ")[1]).collect(Collectors.toSet());
+        // gather all the acls applied to the nameIf interface as well as the global acl.
         Object[] acls = commands.stream().
                 filter(cmd -> cmd.toString().startsWith("access-list ") && 
                         aclNames.contains(cmd.toString().split(" ")[1])).
                 toArray();
-        //TODO take care of NAT, ServicePolicy?
         return acls;
     }
 
