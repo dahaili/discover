@@ -20,7 +20,7 @@ public class ASA extends Host {
     private String password;
     
     
-    public ASA (String address, String user, String password) {
+    public ASA (final String address, final String user, final String password) {
         super(address, "", "ASA");
         this.user = user;
         this.password = password;
@@ -33,11 +33,12 @@ public class ASA extends Host {
      * @return configuration for the given network.
      * @throws IOException 
      */
-    public Configuration getConfiguration(String network) throws IOException {
-        String path = "https://" +address + "/admin/config";
-        String cfg  = new ApacheHttpClient().get(path, user, password);
+    public Configuration getConfiguration(final String network) throws IOException {
+        final String path = "https://" +address + "/admin/config";
+        final String cfg  = new ApacheHttpClient().get(path, user, password);
         return new Configuration(cfg, network);
     }
+
 
     /***
      * Send the configuration to this ASA.
@@ -49,8 +50,12 @@ public class ASA extends Host {
         return null;
     }
 
-
-    static private class InterfaceCommand extends CompositeCommand {
+    /**
+     * 
+     * InterfaceCommand represents the ASA CLI for interface.
+     *
+     */
+    static public class InterfaceCommand extends CompositeCommand {
         InterfaceCommand(String command, List<Object> subCommands) {
             super(command, subCommands);
         }
@@ -142,25 +147,25 @@ public class ASA extends Host {
         public String toString() {
             if (isNo)
                 return "no " + command;
-            StringBuffer buf = new StringBuffer(command);
-            for (Object c: subCommands) {
-                for (String line: c.toString().split("\n"))
-                    buf.append("\n ").append(line);
-            }
-            return buf.toString();
+            return command + "\n "
+                + subCommands.stream()
+                .flatMap(cmd -> Stream.of(cmd.toString().split("\n")))
+                .collect(Collectors.joining("\n "));
         }
 
+        public static String[] toStringArray(Stream<Object> cmds) {
+            return cmds.map(Object::toString)
+                    .collect(Collectors.joining("\n"))
+                    .split("\n");
+        }
+        
         public static String[] toStringArray(List<Object> cmds) {
-            StringBuffer buf = null;
-            for (Object cmd: cmds) {
-                if (buf == null)
-                    buf = new StringBuffer(cmd.toString());
-                else 
-                    buf.append("\n").append(cmd.toString());
-            }
-            return buf.toString().split("\n");
+            return toStringArray(cmds.stream());
         }
 
+        public static String[] toStringArray(Object[] cmds) {
+            return toStringArray(Stream.of(cmds));
+        }
         
         /**
          * Convert a list of lines in ASA configuration into a list of String's or CompositeCommand's.
@@ -251,8 +256,16 @@ public class ASA extends Host {
         }
     }
     
+    /**
+     * 
+     * Configuration stores the running-configuration of an ASA device for or given network.
+     *
+     */
     static public class Configuration {
+        // The interface that resides in the concerned network.
+        public InterfaceCommand intf;
         public int vlan;
+
         // Firewall
         public Object[] accessGroups;
         // QoS
@@ -270,20 +283,24 @@ public class ASA extends Host {
 
         // internal use
         private Set<String> aclNames;
- 
-        public Configuration(String runningConfig, String network) {
-            final String[] lines = Arrays.asList(runningConfig.split("\n")).
+
+        public Configuration(final String runningConfig, final String network) {
+            this(Arrays.asList(runningConfig.split("\n")).
                     stream().
                     filter(line -> ! line.startsWith("!")). //skip comments
-                    toArray(String[]::new);
+                    toArray(String[]::new), 
+                    network);
+        }
+
+        public Configuration(String[] lines, String network) {
             final List<Object> commands = CompositeCommand.lines2Commands(lines, 0);
 
             //locate the interface that is within the network.
-            final InterfaceCommand intf = getInterfaceCommand(commands, network);
+            intf = getInterfaceCommand(commands, network);
             if (intf == null) {
                 return;
             }
-            final String nameIf = intf.getNameIf();
+            String nameIf = intf.getNameIf();
             vlan = intf.getVLAN();
             getFirewall(commands, nameIf);
             getQoS(commands, nameIf);
