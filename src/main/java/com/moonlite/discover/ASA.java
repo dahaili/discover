@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.net.util.SubnetUtils;
 import org.apache.commons.net.util.SubnetUtils.SubnetInfo;
@@ -33,81 +34,23 @@ public class ASA extends Host {
      * @throws IOException 
      */
     public Configuration getConfiguration(String network) throws IOException {
-        Configuration config = new Configuration();
         String path = "https://" +address + "/admin/config";
         String cfg  = new ApacheHttpClient().get(path, user, password);
-        
-        String[] lines = Arrays.asList(cfg.split("\n")).
-                stream().
-                filter(line -> ! line.startsWith("!")). //skip comments
-                toArray(String[]::new);
-        List<Object> commands = CompositeCommand.lines2Commands(lines, 0);
-
-        //locate the interface that is within the network.
-        InterfaceCommand intf = getInterfaceCommand(commands, network);
-        if (intf == null) {
-            return null;
-        }
-        String nameIf = intf.getNameIf();
-        config.vlan = intf.getVLAN();
-        config.firewall = getFirewall(commands, nameIf);//NAT, and ServicePolicy?
-//        config.qos = getQoS(commands, nameIf);
-
-        return config;
+        return new Configuration(cfg, network);
     }
 
-    /**
-     * Get the firewall related configurations, such as ACL, NAT, and ServicePolicy
-     * @param commands List<Object> String's and CompositeCommand's
-     * @param nameIf Sting, nameif from interface command.
-     * @return Object[] commands
+    /***
+     * Send the configuration to this ASA.
+     * @param cfg Configuration
+     * @return delivery result
      */
-    private Object[] getFirewall(List<Object> commands, String nameIf) {
-        // get the access-group for the interface: "access-group inside_access_out out interface inside"
-        // gather the global access-group, " "access-group inside_access_out global", as well.
-        Set<String> aclNames = commands.stream().
-                filter(cmd -> cmd.toString().startsWith("access-group ") &&
-                        (cmd.toString().endsWith(" global") ||  cmd.toString().split(" ")[4].equals(nameIf))).
-                map(accessGroup -> accessGroup.toString().split(" ")[1]).collect(Collectors.toSet());
-        // gather all the acls applied to the nameIf interface as well as the global acl.
-        Object[] acls = commands.stream().
-                filter(cmd -> cmd.toString().startsWith("access-list ") && 
-                        aclNames.contains(cmd.toString().split(" ")[1])).
-                toArray();
-        return acls;
-    }
-
-    /**
-     * Get the InterfaceCommand for the interface in a given netowrk.
-     * @param commands List<Object> of ASA commands
-     * @param network String network
-     * @return InterfaceCommand for the interface that is in the given network
-     */
-    private static InterfaceCommand getInterfaceCommand(List<Object> commands, String network) {
-        Function <Object, Boolean> isInSubnet = obj -> {
-            if (obj instanceof String) {
-                return false;
-            }
-            CompositeCommand c = (CompositeCommand) obj;
-            if (!(c.command.startsWith("interface ")))
-                    return false;
-            SubnetInfo subnetInfo = new SubnetUtils(network).getInfo();
-            InterfaceCommand intf = new InterfaceCommand(c.command, c.subCommands);
-            String address = intf.getIpAddress();
-            return address != null && subnetInfo.isInRange(address);
-        };
-
-        Optional<Object> hit = commands.stream().
-                filter(c -> isInSubnet.apply(c)).
-                findFirst();
-        if (hit.isPresent()) {
-            CompositeCommand c = (CompositeCommand) hit.get();
-            return new InterfaceCommand(c.command, c.subCommands);
-        }
+    public Object setConfiguration(Configuration cfg) {
+        //TODO implementation
         return null;
     }
 
-    static class InterfaceCommand extends CompositeCommand {
+
+    static private class InterfaceCommand extends CompositeCommand {
         InterfaceCommand(String command, List<Object> subCommands) {
             super(command, subCommands);
         }
@@ -158,7 +101,7 @@ public class ASA extends Host {
      * CompoisteCommand models ASA CLI that has sub-commands.
      *
      */
-    static class CompositeCommand {
+    static public class CompositeCommand {
         final String command;
         final boolean isNo;
         final List<Object> subCommands;
@@ -218,16 +161,6 @@ public class ASA extends Host {
             return buf.toString().split("\n");
         }
 
-        public static String joinStringArray(String glue, String[] array) {
-            StringBuffer buf = null;
-            for (String s: array) {
-                if (buf == null)
-                    buf = new StringBuffer(s);
-                else
-                    buf.append(glue).append(s);
-            }
-            return buf.toString();
-        }
         
         /**
          * Convert a list of lines in ASA configuration into a list of String's or CompositeCommand's.
@@ -320,9 +253,199 @@ public class ASA extends Host {
     
     static public class Configuration {
         public int vlan;
-        public Object[] buildingBlocks;
-        public Object[] firewall;
-        public Object[] qos;
-        private Object[] vpn;
+        // Firewall
+        public Object[] accessGroups;
+        // QoS
+        public Object[] servicePolicies;
+        public Object[] policyMaps;
+        public Object[] classMaps;
+        // VPN
+        
+        // Building blocks
+        public Object[] accessLists;
+        public Object[] ObjectNetworks;
+        public Object[] ObjectNetworkGroups;
+        public Object[] ObjectServcies;
+        public Object[] ObjectServiceGroups;
+
+        // internal use
+        private Set<String> aclNames;
+ 
+        public Configuration(String runningConfig, String network) {
+            final String[] lines = Arrays.asList(runningConfig.split("\n")).
+                    stream().
+                    filter(line -> ! line.startsWith("!")). //skip comments
+                    toArray(String[]::new);
+            final List<Object> commands = CompositeCommand.lines2Commands(lines, 0);
+
+            //locate the interface that is within the network.
+            final InterfaceCommand intf = getInterfaceCommand(commands, network);
+            if (intf == null) {
+                return;
+            }
+            final String nameIf = intf.getNameIf();
+            vlan = intf.getVLAN();
+            getFirewall(commands, nameIf);
+            getQoS(commands, nameIf);
+            getACLs(commands);
+        }
+
+
+        @Override
+        /***
+         * @return the configuration in a text format acceptable by ASA
+         */
+        public String toString() {
+            //TODO implementation
+            return super.toString();
+        }
+
+        /***
+         * 
+         * @return the configuration in XML format that can send to ASA via HTTP
+         */
+        public String toXML() {
+            //TODO 
+            return null;
+        }
+
+        /**
+         * Get the InterfaceCommand for the interface in a given network.
+         * @param commands List<Object> of ASA commands
+         * @param network String network
+         * @return InterfaceCommand for the interface that is in the given network
+         */
+        private static InterfaceCommand getInterfaceCommand(List<Object> commands, String network) {
+            Function <Object, Boolean> isTheInterfaceCmd = cmd -> {
+                if (cmd instanceof String) {
+                    return false;
+                }
+                CompositeCommand c = (CompositeCommand) cmd;
+                if (!(c.command.startsWith("interface ")))
+                        return false;
+                SubnetInfo subnetInfo = new SubnetUtils(network).getInfo();
+                InterfaceCommand intf = new InterfaceCommand(c.command, c.subCommands);
+                String address = intf.getIpAddress();
+                return address != null && subnetInfo.isInRange(address);
+            };
+
+            Optional<Object> hit = commands.stream()
+                    .filter(cmd -> isTheInterfaceCmd.apply(cmd))
+                    .findFirst();
+            if (hit.isPresent()) {
+                CompositeCommand c = (CompositeCommand) hit.get();
+                return new InterfaceCommand(c.command, c.subCommands);
+            }
+            return null;
+        }
+        
+        /**
+         * Get the firewall related configurations for an interface, such as ACL, NAT
+         * @param commands List<Object> String's and CompositeCommand's
+         * @param nameIf Sting, nameif from interface command.
+         * @return void
+         */
+        private void getFirewall(List<Object> commands, String nameIf) {
+            // get the access-group for the interface: "access-group inside_access_out out interface inside"
+            // gather the global access-group, " "access-group inside_access_out global", as well.
+            accessGroups = commands.stream()
+                    .filter(cmd -> { 
+                        if (cmd instanceof CompositeCommand) {
+                            return false;
+                        }
+                        String[] words = mainCommandWords(cmd);
+                        return words[0].equals("access-group") &&
+                                (words[2].equals("global") || words[4].equals(nameIf));
+                    })
+                    .toArray();
+            //starts to accumulate the names of the access-lists used.
+            aclNames = Stream.of(accessGroups)
+                    .map(accessGroup -> mainCommandWords(accessGroup)[1]).collect(Collectors.toSet());
+        }
+
+        /**
+         * Get QoS configuration for an interface: service-policy, policy-map, and class-map
+         * @param commands List<Object>: running-config
+         * @param nameIf String: the name of the interested interface
+         * @return void
+         */
+        private void getQoS(List<Object> commands, String nameIf) {
+            // TODO service-policy, policy-map, class-map, ACLs.
+
+            /**
+             * pick up the global service-policy: "service-policy <name> global",
+             * and interface specific one: "service-policy <policy-map-name> interface <nameIf>"
+             * 
+             */
+            servicePolicies = commands.stream()
+                    .filter(cmd -> {
+                        if (!(cmd instanceof String)) {
+                            return false;
+                        }
+                        String[] words = mainCommandWords(cmd);
+                        int len = words.length;
+                        return words[0].equals("service-policy") &&
+                               (words[len-1].equals("global") || words[len-1].equals(nameIf));})
+                    .toArray();
+
+            /**
+             * Pickup the policy-map commands used by servicePolicies
+             */
+            Set<Object> policyMapNames = Stream.of(servicePolicies)
+                    .map(cmd -> mainCommandWords(cmd)[1])
+                    .collect(Collectors.toSet());
+            // policy-map command format: "policy-map <name>"
+            policyMaps = commands.stream()
+                    .filter(cmd -> mainCommand(cmd).startsWith("policy-map "))
+                    .filter(cmd -> policyMapNames.contains(mainCommandWords(cmd)[1]))
+                    .toArray();
+
+            /**
+             * Pickup the class-map names used by policyMaps
+             */
+            // class-map names are discovered under the policy-map sub-command "class <classMapName>". 
+            Set<String>classMapNames = Stream.of(policyMaps)
+                    .filter(policyMap -> policyMap instanceof CompositeCommand)
+                    .flatMap(policyMap -> ((CompositeCommand)policyMap).subCommands.stream())
+                    .filter(subCmd -> mainCommand(subCmd).startsWith("class "))
+                    .map(classSubCmd -> mainCommandWords(classSubCmd)[1])
+                    .collect(Collectors.toSet());
+            // class-map commands are of the format: "class-map <name>"
+            classMaps = commands
+                    .stream()
+                    .filter(cmd -> mainCommand(cmd).startsWith("class-map "))
+                    .filter(classMapCmd -> classMapNames.contains(mainCommandWords(classMapCmd)[1]))
+                    .toArray();
+ 
+            //TODO gather the names of the access-lists used by classMaps;
+//            Set<String> aclName;
+//            this.aclNames.addAll(aclNames);
+        }
+
+        /**
+         * populate accessLists with all the access-list commands whose name is in aclNames.
+         * @param commands List<Object> running-config
+         */
+        private void getACLs(List<Object> commands) {
+            // gather all the acls applied to the nameIf interface as well as the global acl.
+            accessLists = commands.stream()
+                    .filter(cmd -> {
+                        if (!(cmd instanceof String)) {
+                            return false;
+                        }
+                        String[] words = mainCommandWords(cmd);
+                        return words[0].equals("access-list") && 
+                            aclNames.contains(words[1]);})
+                    .toArray();
+        }
+
+
+        private static String mainCommand(Object cmd) {
+            return cmd instanceof String? (String)cmd : ((CompositeCommand)cmd).command;
+        }
+
+        private static String[] mainCommandWords(Object cmd) {
+            return mainCommand(cmd).split(" ");
+        }
     }
 }
