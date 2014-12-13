@@ -16,7 +16,7 @@ import com.moonlite.discover.ASA.CompositeCommand;
 
 public class ASATest {
 
-    @Ignore
+    @Test
     /***
      * Test getting configuration information of a given network from a given device
      */
@@ -24,14 +24,14 @@ public class ASATest {
         ASA asa = new ASA("my-f1", "cisco", "cisco");
         try {
             ASA.Configuration config = asa.getConfiguration("192.168.103.1/24");
-            if (config.accessGroups != null)
-                Stream.of(config.accessGroups).forEach(System.out::println);
-            if (config.servicePolicies != null)
-                Stream.of(config.servicePolicies).forEach(System.out::println);
-            if (config.policyMaps != null)
-                Stream.of(config.policyMaps).forEach(System.out::println);
-            if (config.classMaps != null)
-                Stream.of(config.classMaps).forEach(System.out::println);
+            Object[][] sections = {
+                    config.accessGroups,
+                    config.servicePolicies,
+                    config.policyMaps,
+                    config.classMaps,
+                    config.accessLists,
+            };
+            Stream.of(sections).flatMap(section -> Stream.of(section)).forEach(System.out::println);
         } catch (IOException e) {
             e.printStackTrace();
             fail("ASA.getConfiguration");
@@ -48,14 +48,14 @@ public class ASATest {
             String filePath = getFilePath("asa-running-config.txt");
             String[] lines = Files.lines(Paths.get(filePath)).toArray(String[]::new);
             ASA.Configuration config = new ASA.Configuration(lines, "192.168.103.1/24");
-            if (config.accessGroups != null)
-                Stream.of(config.accessGroups).forEach(System.out::println);
-            if (config.servicePolicies != null)
-                Stream.of(config.servicePolicies).forEach(System.out::println);
-            if (config.policyMaps != null)
-                Stream.of(config.policyMaps).forEach(System.out::println);
-            if (config.classMaps != null)
-                Stream.of(config.classMaps).forEach(System.out::println);
+            Object[][] sections = {
+                    config.accessGroups,
+                    config.servicePolicies,
+                    config.policyMaps,
+                    config.classMaps,
+                    config.accessLists,
+            };
+            Stream.of(sections).flatMap(section -> Stream.of(section)).forEach(System.out::println);
         } catch (Exception e) {
             e.printStackTrace();
             fail("ASA.getConfiguration");
