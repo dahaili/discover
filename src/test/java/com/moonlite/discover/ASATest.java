@@ -16,7 +16,7 @@ import com.moonlite.discover.ASA.CompositeCommand;
 
 public class ASATest {
 
-    @Test
+    @Ignore
     /***
      * Test getting configuration information of a given network from a given device
      */
