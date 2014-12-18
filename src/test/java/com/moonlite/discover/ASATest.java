@@ -48,14 +48,7 @@ public class ASATest {
             String filePath = getFilePath("asa-running-config.txt");
             String[] lines = Files.lines(Paths.get(filePath)).toArray(String[]::new);
             ASA.Configuration config = new ASA.Configuration(lines, "192.168.103.1/24");
-            Object[][] sections = {
-                    config.accessGroups,
-                    config.servicePolicies,
-                    config.policyMaps,
-                    config.classMaps,
-                    config.accessLists,
-            };
-            Stream.of(sections).flatMap(section -> Stream.of(section)).forEach(System.out::println);
+            System.out.println(config.toString());
         } catch (Exception e) {
             e.printStackTrace();
             fail("ASA.getConfiguration");
@@ -147,6 +140,10 @@ public class ASATest {
                 " nameif inside",
                 " security-level 100",
                 " ip address 192.168.103.1 255.255.255.0", 
+                "class-map class-map-inside",
+                " match access-list class-map-inside-access-list",
+                "class-map inspection_default",
+                " match default-inspection-traffic",
                 "policy-map type inspect dns preset_dns_map",
                 " parameters",
                 " message-length maximum client auto",
@@ -155,6 +152,7 @@ public class ASATest {
                 " class inspection_default",
                 "  inspect ftp",
                 "policy-map policy-map-inside",
+                " class class-map-inside",
                 "service-policy global_policy global",
                 "service-policy policy-map-inside interface inside",
         };
@@ -167,10 +165,18 @@ public class ASATest {
                 " class inspection_default",
                 "  inspect ftp",
                 "policy-map policy-map-inside",
+                " class class-map-inside",
+        };
+        String[] expectedClassMaps = {
+                "class-map class-map-inside",
+                " match access-list class-map-inside-access-list",
+                "class-map inspection_default",
+                " match default-inspection-traffic",
         };
         ASA.Configuration config = new ASA.Configuration(runningConfig, "192.168.103.1/24");
         assertArrayEquals(expectedServicePolicies, config.servicePolicies);
         assertArrayEquals(expectedPolicyMaps, CompositeCommand.toStringArray(config.policyMaps));
+        assertArrayEquals(expectedClassMaps, CompositeCommand.toStringArray(config.classMaps));
         
         expectedServicePolicies = new String[] {
                 "service-policy global_policy global",
@@ -183,6 +189,33 @@ public class ASATest {
         config = new ASA.Configuration(runningConfig, "14.23.3.3/8");
         assertArrayEquals(expectedServicePolicies, config.servicePolicies);
         assertArrayEquals(expectedPolicyMaps, CompositeCommand.toStringArray(config.policyMaps));
+    }
+
+    @Test
+    /***
+     * Test getting access-lists for applied to given network
+     * configuration of a device.
+     */
+    public void testGetConfigurationAccessLiss() {
+        try {
+            String filePath = getFilePath("asa-running-config.txt");
+            String[] lines = Files.lines(Paths.get(filePath)).toArray(String[]::new);
+            ASA.Configuration config = new ASA.Configuration(lines, "192.168.103.1/24");
+
+            String[] expectedAccessLists = {
+                "access-list inside_access_in extended permit ip object RBG_4506 any",
+                "access-list inside_access_in extended permit ip object RBG_4039 121.1.1.0 255.255.255.0",
+                "access-list inside_access_in extended permit ip object RBG_4038 121.1.2.0 255.255.255.0",
+                "access-list inside_access_in extended permit ip object RBG_4037 121.1.2.0 255.255.255.0",
+                "access-list inside_access_out extended deny ip host 192.168.1.12 host 121.1.2.6 log emergencies interval 100",
+                "access-list inside_access_out extended deny ip 192.168.1.0 255.255.255.0 121.1.2.0 255.255.255.0 log emergencies interval 100",
+                "access-list class-map-inside-access-list extended permit ip any object OneNO",
+                };
+            assertArrayEquals(expectedAccessLists, CompositeCommand.toStringArray(config.accessLists));
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("ASA.getConfiguration");
+        }
     }
     
     @Test

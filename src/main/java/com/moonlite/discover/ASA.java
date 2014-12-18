@@ -30,7 +30,7 @@ public class ASA extends Host {
      * Gather the configuration information of the device.
      * @param network String, the filer used to identify the network of interest.
      *        it must be in CDIR notation, e.g) 1.1.1.0/24.
-     * @return configuration for the given network.
+     * @return configuration for the given network, including firewall, QoS, and VLAN configuration.
      * @throws IOException 
      */
     public Configuration getConfiguration(final String network) throws IOException {
@@ -313,8 +313,17 @@ public class ASA extends Host {
          * @return the configuration in a text format acceptable by ASA
          */
         public String toString() {
-            //TODO implementation
-            return super.toString();
+            Object[][] sections = {
+                    accessLists,
+                    accessGroups,
+                    classMaps,
+                    policyMaps,
+                    servicePolicies,
+            };
+            StringBuffer buf = new StringBuffer();
+            Stream.of(sections).flatMap(section -> Stream.of(section))
+            .forEach(section -> buf.append(section.toString()).append("\n"));
+            return buf.toString().trim();
         }
 
         /***
@@ -387,8 +396,6 @@ public class ASA extends Host {
          * @return void
          */
         private void getQoS(List<Object> commands, String nameIf) {
-            // TODO service-policy, policy-map, class-map, ACLs.
-
             /**
              * pick up the global service-policy: "service-policy <name> global",
              * and interface specific one: "service-policy <policy-map-name> interface <nameIf>"
@@ -433,10 +440,18 @@ public class ASA extends Host {
                     .filter(cmd -> mainCommand(cmd).startsWith("class-map "))
                     .filter(classMapCmd -> classMapNames.contains(mainCommandWords(classMapCmd)[1]))
                     .toArray();
- 
-            //TODO gather the names of the access-lists used by classMaps;
-//            Set<String> aclName;
-//            this.aclNames.addAll(aclNames);
+
+            /**
+             * Pickup the ACL names used by the concerned classMaps.
+             * It is in the "match access-list inside_access_in" sub-command under class-map command.
+             */
+            Set<String> aclNames = Stream.of(classMaps)
+                    .filter(classMap -> classMap instanceof CompositeCommand)
+                    .flatMap(classMap -> ((CompositeCommand)classMap).subCommands.stream())
+                    .filter(subCmd -> mainCommand(subCmd).startsWith("match access-list "))
+                    .map(matchAccessListSubCmd -> mainCommandWords(matchAccessListSubCmd)[2])
+                    .collect(Collectors.toSet());
+            this.aclNames.addAll(aclNames);
         }
 
         /**
