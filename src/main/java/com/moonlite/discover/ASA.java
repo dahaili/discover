@@ -320,9 +320,9 @@ public class ASA extends Host {
                     policyMaps,
                     servicePolicies,
             };
-            StringBuffer buf = new StringBuffer();
-            Stream.of(sections).flatMap(section -> Stream.of(section))
-            .forEach(section -> buf.append(section.toString()).append("\n"));
+            StringBuffer buf = (StringBuffer) Stream.of(sections)
+                    .flatMap(section -> Stream.of(section))
+                    .reduce(new StringBuffer(), (b, cmd) -> ((StringBuffer)b).append(cmd.toString()).append('\n'));
             return buf.toString().trim();
         }
 
